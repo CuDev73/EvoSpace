@@ -2,7 +2,7 @@
 // db.php
 
 $host = 'localhost';
-$dbname = 'evospace';
+$dbname = 'instituto_db';
 $user = 'root';
 $pass = '';
 
