@@ -20,7 +20,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['cedula']     = $usuario['cedula'];
         $_SESSION['rol']        = $usuario['rol'];
 
-        header('Location: roles/admin.php');
+        // ========== REDIRECCIÓN SEGÚN ROL ==========
+        switch ($usuario['rol']) {
+            case 'admin':
+                header('Location: roles/admin.php');
+                break;
+            case 'profesor':
+                header('Location: roles/profesor.php');
+                break;
+            case 'padre':
+                header('Location: roles/padre.php');
+                break;
+            default:
+                // Si por algún motivo tiene otro rol, va a admin por defecto
+                header('Location: roles/admin.php');
+                break;
+        }
         exit;
     } else {
         header('Location: index.php?error=1');
