@@ -300,7 +300,6 @@ $alumnos_todos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="modal-body">
                     <input type="hidden" name="accion" value="guardar">
                     <input type="hidden" name="id_usuario" id="id_usuario" value="0">
-
                     <div class="mb-3">
                         <label class="form-label">Usuario *</label>
                         <input type="text" name="usuario" id="usuario" class="form-control" required>

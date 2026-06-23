@@ -122,7 +122,7 @@ $iconos = [
     <?php endif; ?>
 
     <!-- ========================================================== -->
-    <!-- SECCIÓN: Porcentaje de beca global (input + botón juntos) -->
+    <!-- SECCIÓN: Porcentaje de beca global -->
     <!-- ========================================================== -->
     <div class="card shadow mb-4">
         <div class="card-header bg-warning text-dark py-2">
@@ -132,7 +132,6 @@ $iconos = [
             <form method="POST">
                 <input type="hidden" name="accion" value="actualizar_beca">
 
-                <!-- FILA 1: Input + Botón juntos (como input-group) -->
                 <div class="row g-2 align-items-end">
                     <div class="col-md-6">
                         <label class="form-label small mb-0">Porcentaje a pagar (%)</label>
@@ -146,20 +145,18 @@ $iconos = [
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <!-- Espacio vacío para mantener la alineación (opcional) -->
+                        <!-- Espacio vacío para mantener la alineación -->
                     </div>
                 </div>
 
-                <!-- LÍNEA SEPARADORA -->
                 <hr class="my-3">
 
-                <!-- FILA 2: Texto de ayuda -->
                 <div class="row">
                     <div class="col-12">
                         <small class="text-muted">
                             <i class="bi bi-info-circle me-1"></i>
                             Este porcentaje se aplica a la cuota de todos los alumnos becados.
-                            Valor actual: <strong><?= $porcentaje_beca ?>%</strong>. Para ingresar un porcentaje con decimal utilizar "." el punto. Ej: <strong></strong>50.50</strong> que representa la coma.  
+                            Valor actual: <strong><?= $porcentaje_beca ?>%</strong>. Para ingresar un porcentaje con decimal utilizar "." el punto. Ej: <strong>50.50</strong> que representa la coma.  
                         </small>
                     </div>
                 </div>
@@ -191,9 +188,7 @@ $iconos = [
                                                 $precioData = $curso['precios'][$concepto] ?? null;
                                                 if (!$precioData) continue;
                                                 $precio = $precioData['precio'];
-                                                // PRECIO CON BECA: precio * (porcentaje_beca / 100)
                                                 $precioConBeca = ($concepto === 'cuota') ? $precio * ($porcentaje_beca / 100) : $precio;
-                                                // REDONDEO AL MILLAR MÁS CERCANO (ej: 99.990 → 100.000)
                                                 $precioConBecaRedondeado = round($precioConBeca / 1000) * 1000;
                                             ?>
                                                 <div class="col-6 col-md-3">

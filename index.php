@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="card shadow">
                     <div class="card-body p-4">
                         <div class="text-center mb-4">
-                            <img src="evo.ico" alt="Logo" width="100" class="mb-3">
+                            <img src="img/evolucionarte-removebg-preview.ico" alt="Logo" width="100" class="mb-3">
                             <h3>Iniciar Sesión</h3>
                         </div>
                         <form method="POST">

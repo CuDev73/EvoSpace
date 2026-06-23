@@ -1,16 +1,22 @@
 <?php
+session_start();
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'admin') {
+    header('Location: /evospace/index.php');
+    exit;
+}
 
-
-include 'C:\xampp\htdocs\evospace\includes\header.php';
-include 'C:\xampp\htdocs\evospace\includes\navbar.php';
-require_once 'C:\xampp\htdocs\evospace\config\db.php';
-require_once 'C:\xampp\htdocs\evospace\secciones\eventoscasi\models\EventoModel.php';
-require_once 'C:\xampp\htdocs\evospace\secciones\eventoscasi\models\NotificacionModel.php';
+include '../../includes/header.php';
+include '../../includes/navbar.php';
+require_once '../../config/db.php';
+require_once 'models/EventoModel.php';
+require_once 'models/NotificacionModel.php';
 
 $mensaje = '';
 $eventoModel = new EventoModel($pdo);
 
-// 1. PROCESAR NUEVO EVENTO (POST tradicional igual que agregar_pago)
+// ==========================================================
+// 1. PROCESAR NUEVO EVENTO
+// ==========================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'agregar_evento') {
     $datos = [
         'titulo'            => trim($_POST['titulo']),
@@ -19,19 +25,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
         'lugar'             => !empty($_POST['lugar']) ? trim($_POST['lugar']) : null,
         'enlace_ubicacion'  => !empty($_POST['enlace_ubicacion']) ? trim($_POST['enlace_ubicacion']) : null,
         'descripcion'       => !empty($_POST['descripcion']) ? trim($_POST['descripcion']) : null,
-        'color'             => $_POST['color'] ?? '#8B1A1A',
-        'ramas'             => $_POST['ramas'] ?? [] // IDs de los cursos seleccionados (1, 2, 3...)
+        'color'             => $_POST['color'] ?? '#c81015',
+        'ramas'             => isset($_POST['ramas']) ? array_map('intval', $_POST['ramas']) : []
     ];
 
     try {
         $eventoModel->crearEvento($datos);
-        $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Evento registrado y notificaciones enviadas correctamente.';
+        $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Evento registrado correctamente.';
     } catch (Exception $e) {
         $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Error: ' . $e->getMessage();
     }
 }
 
-// 2. PROCESAR ELIMINACIÓN DE EVENTO (GET tradicional por URL)
+// ==========================================================
+// 2. ACTUALIZAR EVENTO (editar)
+// ==========================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'editar_evento') {
+    $id_evento = (int)$_POST['id_evento'];
+    $datos = [
+        'titulo'            => trim($_POST['titulo']),
+        'fecha'             => $_POST['fecha'],
+        'hora'              => !empty($_POST['hora']) ? $_POST['hora'] : null,
+        'lugar'             => !empty($_POST['lugar']) ? trim($_POST['lugar']) : null,
+        'enlace_ubicacion'  => !empty($_POST['enlace_ubicacion']) ? trim($_POST['enlace_ubicacion']) : null,
+        'descripcion'       => !empty($_POST['descripcion']) ? trim($_POST['descripcion']) : null,
+        'color'             => $_POST['color'] ?? '#c81015',
+        'ramas'             => isset($_POST['ramas']) ? array_map('intval', $_POST['ramas']) : []
+    ];
+
+    try {
+        $eventoModel->actualizarEvento($id_evento, $datos);
+        $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Evento actualizado correctamente.';
+    } catch (Exception $e) {
+        $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Error: ' . $e->getMessage();
+    }
+}
+
+// ==========================================================
+// 3. ELIMINAR EVENTO
+// ==========================================================
 if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['id'])) {
     $id_eliminar = (int)$_GET['id'];
     try {
@@ -42,54 +74,57 @@ if (isset($_GET['accion']) && $_GET['accion'] === 'eliminar' && isset($_GET['id'
     }
 }
 
-// 3. FILTROS SUPERIORES 
-$tipoSeleccionado = $_GET['tipo'] ?? ''; // Mantenemos la lógica de tipos por compatibilidad de interfaz
-$cursoSeleccionado = $_GET['curso'] ?? 0;
+// ==========================================================
+// 4. OBTENER CURSOS Y EVENTOS
+// ==========================================================
+$cursoSeleccionado = isset($_GET['curso']) ? (int)$_GET['curso'] : 0;
 
-// Traemos los cursos para el selector dinámico del filtro superior
-$cursosFiltro = [];
-$sqlFiltro = "SELECT id, nombre FROM cursos ORDER BY nombre";
-$cursosFiltro = $pdo->query($sqlFiltro)->fetchAll(PDO::FETCH_ASSOC);
+$sqlCursos = "SELECT id_curso, nombre, tipo FROM cursos WHERE activo = 1 ORDER BY tipo, orden";
+$stmt = $pdo->query($sqlCursos);
+$todosCursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// CORREGIDO CON EL PDF: La tabla 'cursos' usa 'id' y 'nombre'
-$sqlTodosCursos = "SELECT id, nombre FROM cursos ORDER BY nombre";
-$todosLosCursos = $pdo->query($sqlTodosCursos)->fetchAll(PDO::FETCH_ASSOC);
+$cursosPorTipo = [];
+foreach ($todosCursos as $c) {
+    $cursosPorTipo[$c['tipo']][] = $c;
+}
 
-// 4. OBTENER Y FILTRAR EVENTOS
 $todosEventos = $eventoModel->obtenerEventos();
-$eventosFiltrados = [];
 
+$eventosFiltrados = [];
 foreach ($todosEventos as $ev) {
     $cumpleCurso = true;
-
-    // Si se filtra por un curso específico (por su ID numérico)
     if ($cursoSeleccionado > 0) {
         $cumpleCurso = false;
         if (isset($ev['ramas']) && is_array($ev['ramas'])) {
             foreach ($ev['ramas'] as $rama) {
-                // Comparamos contra 'id' o 'id_curso' según devuelva tu EventoModel
-                if ((isset($rama['id']) && $rama['id'] == $cursoSeleccionado) || (isset($rama['id_curso']) && $rama['id_curso'] == $cursoSeleccionado)) {
+                if (isset($rama['id_curso']) && $rama['id_curso'] == $cursoSeleccionado) {
                     $cumpleCurso = true;
                     break;
                 }
             }
         }
     }
-
     if ($cumpleCurso) {
         $eventosFiltrados[] = $ev;
     }
 }
+
+$tipoColores = [
+    'Acrotelas' => 'warning',
+    'Infantil'  => 'info',
+    'Superior'  => 'primary'
+];
 ?>
 
-<div class="container mt-3" style="font-family: 'Montserrat', sans-serif;">
+<div class="container mt-3">
     <?php if ($mensaje): ?>
         <div class="alert alert-info alert-dismissible fade show" role="alert">
             <?= $mensaje ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endif; ?>
 
+    <!-- FILTROS -->
     <div class="card shadow mb-3">
         <div class="card-header bg-danger text-white py-2 d-flex justify-content-between align-items-center">
             <span><i class="bi bi-funnel"></i> Filtrar eventos por curso</span>
@@ -101,17 +136,16 @@ foreach ($todosEventos as $ev) {
             <form method="GET" id="filtroForm">
                 <div class="row g-2">
                     <div class="col-md-8 d-flex flex-column">
-                        <label class="form-label mb-1 small text-muted fw-bold">Seleccionar Curso / Modalidad</label>
+                        <label class="form-label mb-1 small text-muted fw-bold">Seleccionar Curso</label>
                         <select name="curso" id="filtroCurso" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="0">Todos los cursos</option>
-                            <?php foreach ($cursosFiltro as $curso): ?>
-                                <option value="<?= $curso['id'] ?>" <?= $cursoSeleccionado == $curso['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($curso['nombre']) ?>
+                            <?php foreach ($todosCursos as $curso): ?>
+                                <option value="<?= $curso['id_curso'] ?>" <?= $cursoSeleccionado == $curso['id_curso'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($curso['tipo'] . ' - ' . $curso['nombre']) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-
                     <div class="col-md-4 d-flex flex-column justify-content-end">
                         <a href="eventos.php" class="btn btn-secondary btn-sm w-100">
                             <i class="bi bi-arrow-clockwise"></i> Limpiar filtros
@@ -122,22 +156,25 @@ foreach ($todosEventos as $ev) {
         </div>
     </div>
 
+    <!-- BUSCADOR -->
     <div class="row g-2 mb-3">
         <div class="col-md-12">
             <input type="text" id="buscador" class="form-control form-control-sm" placeholder="Buscar evento por título, lugar o descripción...">
         </div>
     </div>
 
+    <!-- TABLA DE EVENTOS -->
     <div class="card shadow">
         <div class="card-header bg-danger text-white py-2">
-            <i class="bi bi-calendar-event-fill"></i> Panel de Eventos Disponibles
+            <i class="bi bi-calendar-event-fill"></i> Panel de Eventos
             <?php if ($cursoSeleccionado > 0): ?>
                 <span class="badge bg-light text-dark ms-2">
                     <?php
-                    $cursoNombre = array_filter($cursosFiltro, function ($c) use ($cursoSeleccionado) {
-                        return $c['id'] == $cursoSeleccionado;
+                    $cursoNombre = array_filter($todosCursos, function ($c) use ($cursoSeleccionado) {
+                        return $c['id_curso'] == $cursoSeleccionado;
                     });
-                    echo !empty($cursoNombre) ? reset($cursoNombre)['nombre'] : 'Curso';
+                    $curso = !empty($cursoNombre) ? reset($cursoNombre) : null;
+                    echo $curso ? htmlspecialchars($curso['tipo'] . ' - ' . $curso['nombre']) : 'Curso';
                     ?>
                 </span>
             <?php endif; ?>
@@ -150,8 +187,8 @@ foreach ($todosEventos as $ev) {
                     <table class="table table-hover table-sm align-middle" id="tablaEventos">
                         <thead class="text-center table-light">
                             <tr>
-                                <th style="width: 60px;">Color</th>
-                                <th>Título del Evento</th>
+                                <th style="width: 50px;">Color</th>
+                                <th>Título</th>
                                 <th>Fecha y Hora</th>
                                 <th>Lugar</th>
                                 <th>Cursos Notificados</th>
@@ -162,14 +199,14 @@ foreach ($todosEventos as $ev) {
                             <?php foreach ($eventosFiltrados as $ev): ?>
                                 <tr>
                                     <td class="text-center">
-                                        <div class="rounded shadow-sm" style="width: 30px; height: 30px; background-color: <?= htmlspecialchars($ev['color'] ?? '#8B1A1A') ?>; margin: 0 auto;"></div>
+                                        <div class="rounded shadow-sm" style="width: 28px; height: 28px; background-color: <?= htmlspecialchars($ev['color'] ?? '#c81015') ?>; margin: 0 auto;"></div>
                                     </td>
-                                    <td class="evento-info">
+                                    <td>
                                         <span class="fw-bold text-dark d-block"><?= htmlspecialchars($ev['titulo']) ?></span>
                                         <small class="text-muted d-block text-truncate" style="max-width: 250px;"><?= htmlspecialchars($ev['descripcion'] ?? 'Sin descripción') ?></small>
                                     </td>
                                     <td class="text-center">
-                                        <i class="bi bi-calendar3 text-danger me-1"></i><?= htmlspecialchars($ev['fecha']) ?><br>
+                                        <i class="bi bi-calendar3 text-danger me-1"></i><?= date('d/m/Y', strtotime($ev['fecha'])) ?><br>
                                         <small class="text-muted fw-bold"><i class="bi bi-clock me-1"></i><?= !empty($ev['hora']) ? htmlspecialchars($ev['hora']) : '--:--' ?></small>
                                     </td>
                                     <td>
@@ -184,20 +221,31 @@ foreach ($todosEventos as $ev) {
                                                 <span class="badge bg-secondary small">General (Todos)</span>
                                             <?php else: ?>
                                                 <?php foreach ($ev['ramas'] as $rama): ?>
-                                                    <span class="badge bg-info text-dark font-monospace small" style="font-size: 0.75rem;">
-                                                        <?= htmlspecialchars($rama['nombre']) ?>
+                                                    <?php 
+                                                        $tipo = $rama['tipo'] ?? 'Superior';
+                                                        $color = $tipoColores[$tipo] ?? 'secondary';
+                                                    ?>
+                                                    <span class="badge bg-<?= $color ?> text-dark font-monospace small" style="font-size: 0.7rem;">
+                                                        <?= htmlspecialchars($tipo . ' - ' . ($rama['nombre'] ?? 'Curso')) ?>
                                                     </span>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        <a href="?accion=eliminar&id=<?= $ev['id_evento'] ?><?= $cursoSeleccionado ? '&curso='.$cursoSeleccionado : '' ?>" 
-                                           class="btn btn-outline-danger btn-sm fw-bold"
-                                           onclick="return confirm('¿Estás seguro de que querés eliminar el evento: \'<?= htmlspecialchars($ev['titulo']) ?>\'?');">
-                                            <i class="bi bi-trash-fill"></i>
-                                            <span class="d-none d-sm-inline">Eliminar</span>
-                                        </a>
+                                        <div class="d-flex gap-1 justify-content-center">
+                                            <button class="btn btn-warning btn-sm px-3" data-bs-toggle="modal" data-bs-target="#modalEditarEvento"
+                                                    onclick="cargarEvento(<?= htmlspecialchars(json_encode($ev)) ?>)">
+                                                <i class="bi bi-pencil-fill"></i>
+                                                <span class="d-none d-sm-inline">Editar</span>
+                                            </button>
+                                            <a href="?accion=eliminar&id=<?= $ev['id_evento'] ?><?= $cursoSeleccionado ? '&curso='.$cursoSeleccionado : '' ?>" 
+                                               class="btn btn-danger btn-sm px-3"
+                                               onclick="return confirm('¿Estás seguro de que querés eliminar el evento: \'<?= htmlspecialchars($ev['titulo']) ?>\'?');">
+                                                <i class="bi bi-trash-fill"></i>
+                                                <span class="d-none d-sm-inline">Eliminar</span>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -209,6 +257,9 @@ foreach ($todosEventos as $ev) {
     </div>
 </div>
 
+<!-- ========================================================== -->
+<!-- MODAL NUEVO EVENTO -->
+<!-- ========================================================== -->
 <div class="modal fade" id="modalNuevoEvento" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -223,56 +274,59 @@ foreach ($todosEventos as $ev) {
                     <div class="row g-3">
                         <div class="col-md-12">
                             <label class="form-label fw-bold small">Título del Evento *</label>
-                            <input type="text" name="titulo" class="form-control form-control-sm" required placeholder="Ej: Festival de Fin de Año Evolucionarte">
+                            <input type="text" name="titulo" class="form-control form-control-sm" required placeholder="Ej: Festival de Fin de Año">
                         </div>
-                        
                         <div class="col-md-6">
                             <label class="form-label fw-bold small">Fecha *</label>
                             <input type="date" name="fecha" class="form-control form-control-sm" required>
                         </div>
-                        
                         <div class="col-md-6">
                             <label class="form-label fw-bold small">Hora</label>
                             <input type="time" name="hora" class="form-control form-control-sm">
                         </div>
-
                         <div class="col-md-6">
-                            <label class="form-label fw-bold small">Lugar / Establecimiento</label>
-                            <input type="text" name="lugar" class="form-control form-control-sm" placeholder="Ej: Teatro Municipal de Asunción">
+                            <label class="form-label fw-bold small">Lugar</label>
+                            <input type="text" name="lugar" class="form-control form-control-sm" placeholder="Ej: Teatro Municipal">
                         </div>
-
                         <div class="col-md-6">
-                            <label class="form-label fw-bold small">Enlace de Ubicación (Google Maps URL)</label>
+                            <label class="form-label fw-bold small">Enlace de Ubicación</label>
                             <input type="url" name="enlace_ubicacion" class="form-control form-control-sm" placeholder="https://maps.google.com/...">
                         </div>
-
                         <div class="col-md-9">
-                            <label class="form-label fw-bold small">Descripción del Evento</label>
-                            <textarea name="descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles organizativos adicionales..."></textarea>
+                            <label class="form-label fw-bold small">Descripción</label>
+                            <textarea name="descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles adicionales..."></textarea>
                         </div>
-
                         <div class="col-md-3">
-                            <label class="form-label fw-bold small">Color Distintivo</label>
-                            <input type="color" name="color" class="form-control form-control-color w-100" value="#8B1A1A" style="height: 38px;">
+                            <label class="form-label fw-bold small">Color</label>
+                            <input type="color" name="color" class="form-control form-control-color w-100" value="#c81015" style="height: 38px;">
                         </div>
-
                         <div class="col-md-12">
-                            <label class="form-label fw-bold text-danger mb-1 small"><i class="bi bi-bell-fill"></i> Seleccionar Cursos a Notificar (Ramas):</label>
-                            <div class="p-3 border rounded bg-light" style="max-height: 160px; overflow-y: auto;">
-                                <div class="row g-2">
-                                    <?php foreach ($todosLosCursos as $cursoItem): ?>
-                                        <div class="col-md-6">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="ramas[]" value="<?= $cursoItem['id'] ?>" id="curso_check_<?= $cursoItem['id'] ?>">
-                                                <label class="form-check-label small" for="curso_check_<?= $cursoItem['id'] ?>">
-                                                    <?= htmlspecialchars($cursoItem['nombre']) ?>
-                                                </label>
-                                            </div>
+                            <label class="form-label fw-bold text-danger mb-1 small"><i class="bi bi-bell-fill"></i> Seleccionar Cursos a Notificar:</label>
+                            <div class="p-3 border rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+                                <?php foreach ($cursosPorTipo as $tipo => $cursos): ?>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold small text-uppercase text-muted"><?= $tipo ?></span>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm seleccionar-todos" data-tipo="<?= $tipo ?>">
+                                                Seleccionar todos
+                                            </button>
                                         </div>
-                                    <?php endforeach; ?>
-                                </div>
+                                        <div class="row g-1 mt-1">
+                                            <?php foreach ($cursos as $curso): ?>
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="ramas[]" value="<?= $curso['id_curso'] ?>" id="curso_check_<?= $curso['id_curso'] ?>">
+                                                        <label class="form-check-label small" for="curso_check_<?= $curso['id_curso'] ?>">
+                                                            <?= htmlspecialchars($curso['nombre']) ?>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
-                            <small class="text-muted">A los cursos marcados se les generará una notificación automática en el sistema.</small>
+                            <small class="text-muted">A los cursos marcados se les generará una notificación automática.</small>
                         </div>
                     </div>
                 </div>
@@ -285,49 +339,150 @@ foreach ($todosEventos as $ev) {
     </div>
 </div>
 
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
-    <div id="toastNotificacion" class="toast align-items-center text-white bg-dark border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="bi bi-bell-fill text-warning me-2 animate-bounce"></i>
-                <strong class="me-auto">¡EvoSpace Sistema!</strong><br>
-                <span id="toastMensaje">El evento se registró correctamente y las ramas fueron notificadas.</span>
+<!-- ========================================================== -->
+<!-- MODAL EDITAR EVENTO -->
+<!-- ========================================================== -->
+<div class="modal fade" id="modalEditarEvento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-pencil-fill"></i> Editar Evento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <button type="button" class="btn-close btn-close-white m-auto me-2" data-bs-dismiss="toast" aria-label="Close"></button>
+            <form method="POST" id="formEditarEvento">
+                <div class="modal-body">
+                    <input type="hidden" name="accion" value="editar_evento">
+                    <input type="hidden" name="id_evento" id="edit_id_evento" value="0">
+
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small">Título del Evento *</label>
+                            <input type="text" name="titulo" id="edit_titulo" class="form-control form-control-sm" required placeholder="Ej: Festival de Fin de Año">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Fecha *</label>
+                            <input type="date" name="fecha" id="edit_fecha" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Hora</label>
+                            <input type="time" name="hora" id="edit_hora" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Lugar</label>
+                            <input type="text" name="lugar" id="edit_lugar" class="form-control form-control-sm" placeholder="Ej: Teatro Municipal">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Enlace de Ubicación</label>
+                            <input type="url" name="enlace_ubicacion" id="edit_enlace" class="form-control form-control-sm" placeholder="https://maps.google.com/...">
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label fw-bold small">Descripción</label>
+                            <textarea name="descripcion" id="edit_descripcion" class="form-control form-control-sm" rows="2" placeholder="Detalles adicionales..."></textarea>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">Color</label>
+                            <input type="color" name="color" id="edit_color" class="form-control form-control-color w-100" value="#c81015" style="height: 38px;">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold text-danger mb-1 small"><i class="bi bi-bell-fill"></i> Seleccionar Cursos a Notificar:</label>
+                            <div class="p-3 border rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+                                <?php foreach ($cursosPorTipo as $tipo => $cursos): ?>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold small text-uppercase text-muted"><?= $tipo ?></span>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm seleccionar-todos-edit" data-tipo="<?= $tipo ?>">
+                                                Seleccionar todos
+                                            </button>
+                                        </div>
+                                        <div class="row g-1 mt-1">
+                                            <?php foreach ($cursos as $curso): ?>
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="ramas[]" value="<?= $curso['id_curso'] ?>" id="edit_curso_check_<?= $curso['id_curso'] ?>">
+                                                        <label class="form-check-label small" for="edit_curso_check_<?= $curso['id_curso'] ?>">
+                                                            <?= htmlspecialchars($curso['nombre']) ?>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <small class="text-muted">A los cursos marcados se les generará una notificación automática.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning btn-sm fw-bold"><i class="bi bi-save"></i> Actualizar Evento</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Detectamos si la alerta invisible de PHP que pusimos arriba está en la pantalla
-    const alertaInfo = document.querySelector('.alert-info');
-    
-    if (alertaInfo && alertaInfo.textContent.includes('Evento registrado')) {
-        // Extraemos los datos reales que pusiste en el formulario para armar la notificación
-        const tituloInput = document.querySelector('input[name="titulo"]');
-        const tituloEvento = tituloInput ? tituloInput.value : "Nuevo Evento";
-        
-        // Personalizamos el texto del cartel flotante
-        document.getElementById('toastMensaje').innerHTML = `Se creó con éxito el evento: <strong>"${tituloEvento}"</strong> y se generaron los avisos en la base de datos.`;
-
-        // 2. Inicializamos y mostramos el cartel flotante de Bootstrap
-        const elementoToast = document.getElementById('toastNotificacion');
-        const tuNotificacion = new bootstrap.Toast(elementoToast);
-        tuNotificacion.show();
+    // Buscador en tabla
+    const buscador = document.getElementById('buscador');
+    if (buscador) {
+        buscador.addEventListener('keyup', function() {
+            const filtro = this.value.toLowerCase();
+            document.querySelectorAll('#tablaEventos tbody tr').forEach(fila => {
+                fila.style.display = fila.textContent.toLowerCase().includes(filtro) ? '' : 'none';
+            });
+        });
     }
+
+    // "Seleccionar todos" en modal nuevo
+    document.querySelectorAll('.seleccionar-todos').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const container = this.closest('.mb-3');
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            const todasMarcadas = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !todasMarcadas);
+            this.textContent = todasMarcadas ? 'Seleccionar todos' : 'Deseleccionar todos';
+        });
+    });
+
+    // "Seleccionar todos" en modal editar
+    document.querySelectorAll('.seleccionar-todos-edit').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const container = this.closest('.mb-3');
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            const todasMarcadas = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !todasMarcadas);
+            this.textContent = todasMarcadas ? 'Seleccionar todos' : 'Deseleccionar todos';
+        });
+    });
 });
+
+// Cargar datos del evento en el modal de edición
+function cargarEvento(evento) {
+    document.getElementById('edit_id_evento').value = evento.id_evento;
+    document.getElementById('edit_titulo').value = evento.titulo;
+    document.getElementById('edit_fecha').value = evento.fecha;
+    document.getElementById('edit_hora').value = evento.hora || '';
+    document.getElementById('edit_lugar').value = evento.lugar || '';
+    document.getElementById('edit_enlace').value = evento.enlace_ubicacion || '';
+    document.getElementById('edit_descripcion').value = evento.descripcion || '';
+    document.getElementById('edit_color').value = evento.color || '#c81015';
+
+    // Marcar checkboxes de cursos según las ramas del evento
+    const ramasIds = evento.ramas ? evento.ramas.map(r => r.id_curso) : [];
+    document.querySelectorAll('#modalEditarEvento input[name="ramas[]"]').forEach(cb => {
+        cb.checked = ramasIds.includes(parseInt(cb.value));
+    });
+
+    // Actualizar texto de los botones "Seleccionar todos" según el estado
+    document.querySelectorAll('.seleccionar-todos-edit').forEach(btn => {
+        const container = btn.closest('.mb-3');
+        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+        const todasMarcadas = Array.from(checkboxes).every(cb => cb.checked);
+        btn.textContent = todasMarcadas ? 'Deseleccionar todos' : 'Seleccionar todos';
+    });
+}
 </script>
 
-<style>
-/* Un pequeño efecto de animación para la campanita de la alerta */
-@keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
-}
-.animate-bounce {
-    display: inline-block;
-    animation: bounce 0.5s infinite alternate;
-}
-</style>
-<?php include 'C:\xampp\htdocs\evospace\includes\footer.php'; ?>
+<?php include '../../includes/footer.php'; ?>

@@ -28,9 +28,9 @@
                         'Pagos' => ['url' => '/evospace/secciones/pagos.php', 'icon' => 'bi-cash-coin'],
                         'Cantina' => ['url' => '/evospace/secciones/cantina.php', 'icon' => 'bi-cup-straw'],
                         'Profesores' => ['url' => '/evospace/secciones/profesores.php', 'icon' => 'bi-person-badge-fill'],
-                        'Eventos' => ['url' => '/evospace/secciones/eventos.php', 'icon' => 'bi-calendar-event-fill'],
-                        'Configuración' => ['url' => '/evospace/secciones/configuracion/configuracion.php', 'icon' => 'bi-gear-fill'],
+                        'Eventos' => ['url' => '/evospace/secciones/eventoscasi/eventos.php', 'icon' => 'bi-calendar-event-fill'],
                         'Usuarios' => ['url' => '/evospace/secciones/usuarios.php', 'icon' => 'bi-people-fill'],
+                        'Configuración' => ['url' => '/evospace/secciones/configuracion/configuracion.php', 'icon' => 'bi-gear-fill'],
                     ];
                     foreach ($secciones as $nombre => $datos):
                         $esActivo = (basename($datos['url']) == $currentPage) ? 'active' : '';

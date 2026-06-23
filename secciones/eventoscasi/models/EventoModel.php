@@ -1,14 +1,11 @@
 <?php
-require_once 'C:\xampp\htdocs\evospace\config\db.php';
-require_once 'C:\xampp\htdocs\evospace\secciones\eventoscasi\models\NotificacionModel.php';
+require_once __DIR__ . '/../../../config/db.php';
+require_once __DIR__ . '/NotificacionModel.php';
 
-/**
- * Modelo de Eventos adaptado a la base de datos de EvoSpace.
- */
 class EventoModel
 {
-    private PDO $db;
-    private NotificacionModel $notificacionModel;
+    private $db;
+    private $notificacionModel;
 
     public function __construct($pdo)
     {
@@ -17,7 +14,7 @@ class EventoModel
     }
 
     /**
-     * Crea un nuevo evento y dispara la notificación automática.
+     * Crear un nuevo evento
      */
     public function crearEvento(array $data): int
     {
@@ -25,24 +22,22 @@ class EventoModel
 
         $this->db->beginTransaction();
         try {
-            $stmt = $this->db->prepare(
-                "INSERT INTO eventos (titulo, fecha, hora, lugar, enlace_ubicacion, descripcion)
-                 VALUES (:titulo, :fecha, :hora, :lugar, :enlace_ubicacion, :descripcion)"
-            );
+            $sql = "INSERT INTO eventos (titulo, descripcion, fecha, hora, lugar, enlace_ubicacion, color) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $this->db->prepare($sql);
             $stmt->execute([
-                ':titulo'           => $data['titulo'],
-                ':fecha'            => $data['fecha'],
-                ':hora'             => $data['hora'] ?? null,
-                ':lugar'            => $data['lugar'] ?? null,
-                ':enlace_ubicacion' => $data['enlace_ubicacion'] ?? null,
-                ':descripcion'      => $data['descripcion'] ?? null,
+                $data['titulo'],
+                $data['descripcion'] ?? null,
+                $data['fecha'],
+                $data['hora'] ?? null,
+                $data['lugar'] ?? null,
+                $data['enlace_ubicacion'] ?? null,
+                $data['color'] ?? '#c81015'
             ]);
-
             $eventoId = (int) $this->db->lastInsertId();
 
-            $this->guardarCursosDestino($eventoId, $data['ramas']);
+            $this->guardarRamas($eventoId, $data['ramas']);
 
-            // Envía la notificación al modelo correspondiente
             $this->notificacionModel->enviarNotificacion($eventoId, $data['titulo'], $data['ramas']);
 
             $this->db->commit();
@@ -54,35 +49,37 @@ class EventoModel
     }
 
     /**
-     * Edita un evento existente.
+     * Actualizar un evento existente
      */
-    public function editarEvento(int $id, array $data): bool
+    public function actualizarEvento(int $id, array $data): bool
     {
         $this->validar($data);
 
         $this->db->beginTransaction();
         try {
-            $stmt = $this->db->prepare(
-                "UPDATE eventos
-                 SET titulo = :titulo, fecha = :fecha, hora = :hora,
-                     lugar = :lugar, enlace_ubicacion = :enlace_ubicacion, descripcion = :descripcion
-                 WHERE id_evento = :id"
-            );
+            $sql = "UPDATE eventos SET 
+                        titulo = ?, descripcion = ?, fecha = ?, hora = ?, 
+                        lugar = ?, enlace_ubicacion = ?, color = ?
+                    WHERE id_evento = ?";
+            $stmt = $this->db->prepare($sql);
             $stmt->execute([
-                ':titulo'           => $data['titulo'],
-                ':fecha'            => $data['fecha'],
-                ':hora'             => $data['hora'] ?? null,
-                ':lugar'            => $data['lugar'] ?? null,
-                ':enlace_ubicacion' => $data['enlace_ubicacion'] ?? null,
-                ':descripcion'      => $data['descripcion'] ?? null,
-                ':id'               => $id,
+                $data['titulo'],
+                $data['descripcion'] ?? null,
+                $data['fecha'],
+                $data['hora'] ?? null,
+                $data['lugar'] ?? null,
+                $data['enlace_ubicacion'] ?? null,
+                $data['color'] ?? '#c81015',
+                $id
             ]);
 
-            $this->db->prepare("DELETE FROM eventos_cursos WHERE id_evento = :id")->execute([':id' => $id]);
-            $this->guardarCursosDestino($id, $data['ramas']);
+            // Eliminar ramas anteriores y guardar las nuevas
+            $stmt = $this->db->prepare("DELETE FROM evento_curso WHERE id_evento = ?");
+            $stmt->execute([$id]);
+            $this->guardarRamas($id, $data['ramas']);
 
-            $this->db->prepare("DELETE FROM notificaciones WHERE id_evento = :id")->execute([':id' => $id]);
-            $this->notificacionModel->enviarNotificacion($id, $data['titulo'], $data['ramas']);
+            // Actualizar notificaciones (opcional, si tienes tabla)
+            // $this->notificacionModel->actualizarNotificaciones($id, $data['titulo'], $data['ramas']);
 
             $this->db->commit();
             return true;
@@ -93,79 +90,81 @@ class EventoModel
     }
 
     /**
-     * Elimina un evento.
+     * Eliminar evento y sus relaciones
      */
     public function eliminarEvento(int $id): bool
     {
-        $stmt = $this->db->prepare("DELETE FROM eventos WHERE id_evento = :id");
-        return $stmt->execute([':id' => $id]);
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare("DELETE FROM evento_curso WHERE id_evento = ?");
+            $stmt->execute([$id]);
+            $stmt = $this->db->prepare("DELETE FROM eventos WHERE id_evento = ?");
+            $stmt->execute([$id]);
+            $this->db->commit();
+            return true;
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 
     /**
-     * Devuelve un evento por su ID_EVENTO.
+     * Obtener todos los eventos con sus cursos relacionados
+     */
+    public function obtenerEventos(): array
+    {
+        $sql = "SELECT * FROM eventos ORDER BY fecha DESC, hora DESC";
+        $eventos = $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($eventos as &$ev) {
+            $ev['ramas'] = $this->obtenerCursosDeEvento($ev['id_evento']);
+        }
+        return $eventos;
+    }
+
+    /**
+     * Obtener un evento por ID
      */
     public function obtenerEvento(int $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT * FROM eventos WHERE id_evento = :id");
-        $stmt->execute([':id' => $id]);
+        $stmt = $this->db->prepare("SELECT * FROM eventos WHERE id_evento = ?");
+        $stmt->execute([$id]);
         $evento = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$evento) {
-            return null;
-        }
-
-        $evento['ramas'] = $this->obtenerCursosDeEvento((int) $evento['id_evento']);
+        if (!$evento) return null;
+        $evento['ramas'] = $this->obtenerCursosDeEvento($id);
         return $evento;
     }
 
     /**
-     * Devuelve todos los eventos ordenados por fecha.
+     * Guardar ramas (cursos) de un evento
      */
-    public function obtenerEventos(): array
+    private function guardarRamas(int $eventoId, array $ramas): void
     {
-        $stmt = $this->db->query("SELECT * FROM eventos ORDER BY fecha DESC, hora DESC");
-        $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!$eventos) {
-            return [];
+        if (empty($ramas)) return;
+        $sqlRama = "INSERT INTO evento_curso (id_evento, id_curso) VALUES (?, ?)";
+        $stmtRama = $this->db->prepare($sqlRama);
+        foreach (array_unique($ramas) as $id_curso) {
+            $stmtRama->execute([$eventoId, (int)$id_curso]);
         }
-
-        foreach ($eventos as &$evento) {
-            if (isset($evento['id_evento'])) {
-                $evento['ramas'] = $this->obtenerCursosDeEvento((int) $evento['id_evento']);
-            }
-        }
-
-        return $eventos;
     }
 
     /**
-     * Devuelve los próximos eventos.
+     * Obtener los cursos asociados a un evento (incluye `tipo`)
      */
-    public function obtenerProximosEventos(int $limite = 5): array
+    private function obtenerCursosDeEvento(int $eventoId): array
     {
-        $stmt = $this->db->prepare(
-            "SELECT * FROM eventos WHERE fecha >= CURDATE() ORDER BY fecha ASC, hora ASC LIMIT :limite"
-        );
-        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
-        $stmt->execute();
-        $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!$eventos) {
-            return [];
-        }
-
-        foreach ($eventos as &$evento) {
-            if (isset($evento['id_evento'])) {
-                $evento['ramas'] = $this->obtenerCursosDeEvento((int) $evento['id_evento']);
-            }
-        }
-
-        return $eventos;
+        $sql = "SELECT c.id_curso, c.nombre, c.tipo 
+                FROM cursos c
+                INNER JOIN evento_curso ec ON c.id_curso = ec.id_curso
+                WHERE ec.id_evento = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$eventoId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // ===================== Helpers Internos Corregidos =====================
-
+    /**
+     * Validar datos del evento
+     */
     private function validar(array $data): void
     {
         if (empty($data['titulo'])) {
@@ -175,28 +174,8 @@ class EventoModel
             throw new InvalidArgumentException('El evento necesita una fecha.');
         }
         if (empty($data['ramas']) || !is_array($data['ramas'])) {
-            throw new InvalidArgumentException('Debe seleccionarse al menos una opción destino.');
+            throw new InvalidArgumentException('Debe seleccionarse al menos un curso.');
         }
-    }
-
-    private function guardarCursosDestino(int $eventoId, array $cursoIds): void
-    {
-        $stmt = $this->db->prepare(
-            "INSERT INTO eventos_cursos (id_evento, id_curso) VALUES (:id_evento, :id_curso)"
-        );
-        foreach (array_unique($cursoIds) as $cursoId) {
-            $stmt->execute([':id_evento' => $eventoId, ':id_curso' => (int) $cursoId]);
-        }
-    }
-
-    private function obtenerCursosDeEvento(int $eventoId): array
-    {
-        $stmt = $this->db->prepare(
-            "SELECT c.id, c.nombre FROM cursos c
-             INNER JOIN eventos_cursos ec ON ec.id_curso = c.id
-             WHERE ec.id_evento = :id_evento"
-        );
-        $stmt->execute([':id_evento' => $eventoId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
+?>

@@ -20,6 +20,7 @@
         body {
             background-color: #d8d5c9;
             padding-top: 60px;
+            padding-bottom: 30px;
             /* <-- suficiente espacio para el navbar fijo */
         }
 
