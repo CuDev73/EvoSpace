@@ -90,7 +90,7 @@
         transition: background 0.2s, color 0.2s;
     }
     .offcanvas-body .nav-link:hover {
-        background: #f8f9fa;
+        background: #ffff;
         color: #c81015;
     }
     .offcanvas-body .nav-link.active {
