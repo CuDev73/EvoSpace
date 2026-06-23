@@ -30,6 +30,7 @@
                         'Profesores' => ['url' => '/evospace/secciones/profesores.php', 'icon' => 'bi-person-badge-fill'],
                         'Eventos' => ['url' => '/evospace/secciones/eventos.php', 'icon' => 'bi-calendar-event-fill'],
                         'Configuración' => ['url' => '/evospace/secciones/configuracion/configuracion.php', 'icon' => 'bi-gear-fill'],
+                        'Usuarios' => ['url' => '/evospace/secciones/usuarios.php', 'icon' => 'bi-people-fill'],
                     ];
                     foreach ($secciones as $nombre => $datos):
                         $esActivo = (basename($datos['url']) == $currentPage) ? 'active' : '';

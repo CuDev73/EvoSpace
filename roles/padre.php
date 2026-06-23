@@ -26,10 +26,6 @@ $hijos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <div class="container mt-5 pt-4">
-    <div class="bg-danger text-white p-4 rounded mb-4">
-        <h3 class="h3 fw-bold">EvoSpace</h3>
-        <p class="mb-0">Panel de Padres</p>
-    </div>
 
     <div class="card shadow mb-4">
         <div class="card-body">

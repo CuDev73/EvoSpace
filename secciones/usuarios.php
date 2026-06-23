@@ -22,15 +22,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($accion === 'eliminar' && isset($_POST['id_usuario'])) {
         $id = (int)$_POST['id_usuario'];
         if ($id == $_SESSION['id_usuario']) {
-            $mensaje = '❌ No puedes eliminar tu propio usuario.';
+            $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> No puedes eliminar tu propio usuario.';
             $tipoMensaje = 'danger';
         } else {
             $stmt = $pdo->prepare("DELETE FROM usuarios WHERE id_usuario = ?");
             if ($stmt->execute([$id])) {
-                $mensaje = '✅ Usuario eliminado correctamente.';
+                $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Usuario eliminado correctamente.';
                 $tipoMensaje = 'success';
             } else {
-                $mensaje = '❌ Error al eliminar.';
+                $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Error al eliminar.';
                 $tipoMensaje = 'danger';
             }
         }
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activo = isset($_POST['activo']) ? 1 : 0;
 
         if (empty($usuario) || empty($email) || empty($cedula)) {
-            $mensaje = '❌ Usuario, email y cédula son obligatorios.';
+            $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Usuario, email y cédula son obligatorios.';
             $tipoMensaje = 'danger';
         } else {
             try {
@@ -62,23 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt = $pdo->prepare($sql);
                         $stmt->execute([$usuario, $email, $cedula, $rol, $activo, $id_usuario]);
                     }
-                    $mensaje = '✅ Usuario actualizado correctamente.';
+                    $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Usuario actualizado correctamente.';
                     $tipoMensaje = 'success';
                 } else {
                     if (empty($password)) {
-                        $mensaje = '❌ La contraseña es obligatoria para nuevos usuarios.';
+                        $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> La contraseña es obligatoria para nuevos usuarios.';
                         $tipoMensaje = 'danger';
                     } else {
                         $hash = password_hash($password, PASSWORD_DEFAULT);
                         $sql = "INSERT INTO usuarios (usuario, email, cedula, password_hash, rol, activo) VALUES (?, ?, ?, ?, ?, ?)";
                         $stmt = $pdo->prepare($sql);
                         $stmt->execute([$usuario, $email, $cedula, $hash, $rol, $activo]);
-                        $mensaje = '✅ Usuario creado correctamente.';
+                        $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Usuario creado correctamente.';
                         $tipoMensaje = 'success';
                     }
                 }
             } catch (PDOException $e) {
-                $mensaje = '❌ Error: ' . $e->getMessage();
+                $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Error: ' . $e->getMessage();
                 $tipoMensaje = 'danger';
             }
         }
@@ -89,16 +89,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)$_POST['id_usuario'];
         $nuevo_estado = (int)$_POST['nuevo_estado'];
         if ($id == $_SESSION['id_usuario'] && $nuevo_estado == 0) {
-            $mensaje = '❌ No puedes desactivar tu propio usuario.';
+            $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> No puedes desactivar tu propio usuario.';
             $tipoMensaje = 'danger';
         } else {
             $stmt = $pdo->prepare("UPDATE usuarios SET activo = ? WHERE id_usuario = ?");
             if ($stmt->execute([$nuevo_estado, $id])) {
                 $estadoTexto = $nuevo_estado ? 'activado' : 'desactivado';
-                $mensaje = "✅ Usuario $estadoTexto correctamente.";
+                $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Usuario ' . $estadoTexto . ' correctamente.';
                 $tipoMensaje = 'success';
             } else {
-                $mensaje = '❌ Error al cambiar estado.';
+                $mensaje = '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Error al cambiar estado.';
                 $tipoMensaje = 'danger';
             }
         }
@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute($params);
         }
 
-        $mensaje = '✅ Relación padre-hijos actualizada correctamente.';
+        $mensaje = '<i class="bi bi-check-circle-fill text-success"></i> Relación padre-hijos actualizada correctamente.';
         $tipoMensaje = 'success';
     }
 }
@@ -152,14 +152,14 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $roles = ['admin', 'profesor', 'padre'];
 
 // ==========================================================
-// OBTENER ALUMNOS PARA EL MODAL DE ASIGNACIÓN DE HIJOS
+// OBTENER ALUMNOS CON NOMBRE, CURSO Y TIPO PARA EL MODAL
 // ==========================================================
 $alumnos_todos = [];
-$sql = "SELECT a.id_alumno, a.nombre, a.apellido, c.nombre AS curso_nombre, c.tipo AS curso_tipo
+$sql = "SELECT a.id_alumno, CONCAT(a.nombre, ' ', a.apellido) AS nombre_completo, 
+               c.nombre AS curso_nombre, c.tipo AS curso_tipo
         FROM alumnos a
         INNER JOIN cursos c ON a.id_curso = c.id_curso
-        WHERE a.activo = 1
-        ORDER BY c.tipo, c.orden, a.apellido, a.nombre";
+        ORDER BY a.nombre, a.apellido";
 $stmt = $pdo->query($sql);
 $alumnos_todos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -341,7 +341,7 @@ $alumnos_todos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <!-- ========================================================== -->
-<!-- MODAL para ASIGNAR HIJOS (CORREGIDO) -->
+<!-- MODAL para ASIGNAR HIJOS (mejorado con tipo de curso) -->
 <!-- ========================================================== -->
 <div class="modal fade" id="modalHijos" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -357,7 +357,7 @@ $alumnos_todos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     <div class="mb-3">
                         <label class="form-label">Buscar alumno</label>
-                        <input type="text" id="buscadorHijos" class="form-control" placeholder="Buscar por nombre, tipo o curso...">
+                        <input type="text" id="buscadorHijos" class="form-control" placeholder="Escribe el nombre...">
                     </div>
 
                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -365,18 +365,18 @@ $alumnos_todos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <thead class="table-light">
                                 <tr>
                                     <th><input type="checkbox" id="seleccionarTodos" onclick="toggleTodos()"></th>
-                                    <th>Alumno</th>
-                                    <th>Tipo</th>
+                                    <th>Nombre</th>
                                     <th>Curso</th>
+                                    <th>Tipo</th>
                                 </tr>
                             </thead>
                             <tbody id="listaHijos">
                                 <?php foreach ($alumnos_todos as $alumno): ?>
                                     <tr class="fila-alumno">
                                         <td><input type="checkbox" name="hijos[]" value="<?= $alumno['id_alumno'] ?>" class="checkbox-hijo"></td>
-                                        <td><?= htmlspecialchars($alumno['nombre'] . ' ' . $alumno['apellido']) ?></td>
-                                        <td><?= htmlspecialchars($alumno['curso_tipo']) ?></td>
+                                        <td><?= htmlspecialchars($alumno['nombre_completo']) ?></td>
                                         <td><?= htmlspecialchars($alumno['curso_nombre']) ?></td>
+                                        <td><span class="badge bg-<?= $alumno['curso_tipo'] === 'Acrotelas' ? 'warning' : ($alumno['curso_tipo'] === 'Infantil' ? 'info' : 'primary') ?>"><?= htmlspecialchars($alumno['curso_tipo']) ?></span></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -445,8 +445,8 @@ $alumnos_todos = $stmt->fetchAll(PDO::FETCH_ASSOC);
             buscador.addEventListener('keyup', function() {
                 const filtro = this.value.toLowerCase();
                 document.querySelectorAll('.fila-alumno').forEach(fila => {
-                    const texto = fila.cells[1].textContent.toLowerCase() + ' ' + fila.cells[2].textContent.toLowerCase() + ' ' + fila.cells[3].textContent.toLowerCase();
-                    fila.style.display = texto.includes(filtro) ? '' : 'none';
+                    const nombre = fila.cells[1].textContent.toLowerCase();
+                    fila.style.display = nombre.includes(filtro) ? '' : 'none';
                 });
             });
         }
