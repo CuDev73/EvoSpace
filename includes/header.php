@@ -8,7 +8,7 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
-    <link rel="icon" type="image/x-icon" href="../img/evolucionarte-removebg-preview.png">
+    <link rel="icon" type="image/x-icon" href="../img/evolucionarte-removebg-preview.ico">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100..900&display=swap');
@@ -19,7 +19,8 @@
 
         body {
             background-color: #d8d5c9;
-            padding-top: 60px; /* <-- suficiente espacio para el navbar fijo */
+            padding-top: 60px;
+            /* <-- suficiente espacio para el navbar fijo */
         }
 
         .btn-evo {
@@ -45,7 +46,9 @@
         .bi {
             display: inline-block;
             font-size: 1.2rem;
+            vertical-align: -0.125em;/*Corrige lo de la alineación de los iconos*/
         }
     </style>
 </head>
+
 <body>
