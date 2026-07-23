@@ -1,5 +1,5 @@
 <?php
-// db.php
+// config/db.php
 
 $host = 'localhost';
 $dbname = 'evospace';
@@ -11,13 +11,8 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    echo "Error de conexión: " . $e->getMessage();
-    exit();
+    die("Error de conexión: " . $e->getMessage());
 }
 
-function obtenerPorcentajeBeca($pdo) {
-    $stmt = $pdo->query("SELECT valor FROM configuracion WHERE clave = 'porcentaje_beca'");
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row ? (float)$row['valor'] : 45.45;
-}
-?>
+// Incluir funciones
+require_once __DIR__ . '/../helpers/functions.php';

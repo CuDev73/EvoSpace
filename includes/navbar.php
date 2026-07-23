@@ -1,21 +1,28 @@
 <nav class="navbar navbar-dark bg-danger fixed-top">
     <div class="container-fluid position-relative">
+        <!-- Botón hamburguesa (izquierda) -->
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar">
             <span class="navbar-toggler-icon"></span>
         </button>
 
+        <!-- Título centrado -->
         <a class="navbar-brand fw-bold position-absolute start-50 translate-middle-x" href="/evospace/roles/admin.php">
             Evolucionarte
         </a>
 
+        <!-- Usuario a la derecha (solo visible en escritorio) -->
         <span class="navbar-text text-white d-none d-md-inline ms-auto">
-            <i class="bi bi-person-circle"></i> <?= htmlspecialchars($_SESSION['usuario'] ?? 'Admin') ?>
+            <i class="bi bi-person-circle"></i> 
+            <?= htmlspecialchars($_SESSION['nombre_completo'] ?? $_SESSION['usuario'] ?? 'Admin') ?>
         </span>
 
+        <!-- Offcanvas (menú lateral) -->
         <div class="offcanvas offcanvas-start bg-light" tabindex="-1" id="offcanvasNavbar">
             <div class="offcanvas-header bg-danger text-white d-flex align-items-center" style="min-height: 56px; padding: 0.5rem 1rem;">
-                <h5 class="offcanvas-title mb-0 fs-6">Secciones</h5>
-                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="offcanvas"></button>
+                <h5 class="offcanvas-title mb-0 fs-6">
+                    <i class="bi bi-list-ul me-2"></i>Secciones
+                </h5>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
             <div class="offcanvas-body">
                 <ul class="navbar-nav flex-grow-1">
@@ -43,7 +50,7 @@
                     <?php endforeach; ?>
                 </ul>
                 <hr>
-                <a href="/evospace/index.php" class="btn btn-outline-danger w-100">
+                <a href="/evospace/logout.php" class="btn btn-outline-danger w-100">
                     <i class="bi bi-box-arrow-right"></i> Cerrar sesión
                 </a>
             </div>
@@ -52,11 +59,13 @@
 </nav>
 
 <style>
+    /* Fondo y tipografía */
     .navbar {
         font-family: 'Montserrat', sans-serif;
         min-height: 56px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
+    /* Título centrado */
     .navbar-brand {
         font-size: 1.25rem;
         letter-spacing: 0.5px;
@@ -66,6 +75,7 @@
     .navbar-brand:hover {
         color: #fff !important;
     }
+    /* Botón hamburguesa más grande */
     .navbar-toggler {
         padding: 0.4rem 0.6rem;
         font-size: 1.3rem;
@@ -75,14 +85,17 @@
     .navbar-toggler:focus {
         box-shadow: none;
     }
+    /* Usuario a la derecha */
     .navbar-text {
         font-size: 0.9rem;
         opacity: 0.9;
     }
+    /* Offcanvas: cabecera roja sin borde grueso */
     .offcanvas-header {
         border-bottom: 2px solid #a30d11;
         padding: 0.5rem 1rem;
     }
+    /* Enlaces del menú */
     .offcanvas-body .nav-link {
         font-weight: 500;
         color: #333;
@@ -91,7 +104,7 @@
         transition: background 0.2s, color 0.2s;
     }
     .offcanvas-body .nav-link:hover {
-        background: #ffff;
+        background: #f8f9fa;
         color: #c81015;
     }
     .offcanvas-body .nav-link.active {
@@ -103,9 +116,11 @@
         text-align: center;
         font-size: 1.2rem;
     }
+    /* Ancho del offcanvas */
     .offcanvas {
         max-width: 300px;
     }
+    /* En móviles, ocultar el usuario */
     @media (max-width: 768px) {
         .navbar-text {
             display: none !important;
