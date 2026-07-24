@@ -75,4 +75,40 @@ function actualizarProfesor($id_profesor,$nombre,$apellido,$ci,$anio_ingreso, $s
     WHERE id_profesor=$id_profesor";
     mysqli_query($db, $str) or die("Error en actualizarProfesor: " . mysqli_error($db));
 }
+
+// ====== FUNCIONES DE ABONOS ======
+
+function traerAbonos(){
+    global $db;
+    $str = "SELECT * FROM abonos ORDER BY id_abono DESC";
+    $resul = mysqli_query($db, $str) or die("Error en traerAbonos: " . mysqli_error($db));
+    return $resul;
+}
+
+function traerPorID_Abono($id_abono){
+    global $db;
+    $str = "SELECT * FROM abonos WHERE id_abono = $id_abono";
+    $resul = mysqli_query($db, $str) or die("Error en traerPorID_Abono: " . mysqli_error($db));
+    return mysqli_fetch_object($resul);
+}
+
+function borrarAbono($id_abono){
+    global $db;
+    $str = "DELETE FROM abonos WHERE id_abono = $id_abono";
+    mysqli_query($db, $str) or die("Error en borrarAbono: " . mysqli_error($db));
+}
+
+function insertarAbono($fecha_abono, $profesor, $monto_abono){
+    global $db;
+    $str = "INSERT INTO abonos(fecha_abono, profesor, monto_abono) 
+    VALUES ('$fecha_abono', '$profesor', '$monto_abono')";
+    mysqli_query($db, $str) or die("Error en insertarAbono: " . mysqli_error($db));
+}
+
+function actualizarAbono($id_abono, $fecha_abono, $profesor, $monto_abono){
+    global $db;
+    $str = "UPDATE abonos SET fecha_abono='$fecha_abono', profesor='$profesor', 
+    monto_abono='$monto_abono' WHERE id_abono=$id_abono";
+    mysqli_query($db, $str) or die("Error en actualizarAbono: " . mysqli_error($db));
+}
 ?>
